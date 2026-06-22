@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - job-tracker-network
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/jobtracker
+      - JWT_SECRET=pavithra_secret_key_2026
+      - PORT=3001
+    depends_on:
+      - mongodb
+    networks:
+      - job-tracker-network
+
+  jobs-service:
+    build: ./jobs-service
+    container_name: jobs-service
+    ports:
+      - "3002:3002"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/jobtracker
+      - JWT_SECRET=pavithra_secret_key_2026
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - PORT=3002
+    depends_on:
+      - mongodb
+      - auth-service
+    networks:
+      - job-tracker-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "3003:3003"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/jobtracker
+      - JWT_SECRET=pavithra_secret_key_2026
+      - PORT=3003
+    depends_on:
+      - mongodb
+    networks:
+      - job-tracker-network
+
+  gateway:
+    image: nginx:alpine
+    container_name: gateway
+    ports:
+      - "3000:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - auth-service
+      - jobs-service
+      - notification-service
+    networks:
+      - job-tracker-network
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    networks:
+      - job-tracker-network
+
+networks:
+  job-tracker-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
